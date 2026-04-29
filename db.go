@@ -80,7 +80,7 @@ func (s *SQLiteDB) LoadAll() ([]*Link, error) {
 	defer s.mu.RUnlock()
 
 	var links []*Link
-	rows, err := s.db.Query("SELECT Short, Long, Created, LastEdit, Owner FROM Links")
+	rows, err := s.db.Query("SELECT Short, Long, CAST(Created AS TEXT), CAST(LastEdit AS TEXT), Owner FROM Links")
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (s *SQLiteDB) Load(short string) (*Link, error) {
 
 	link := new(Link)
 	var created, lastEdit int64
-	row := s.db.QueryRow("SELECT Short, Long, Created, LastEdit, Owner FROM Links WHERE ID = ?1 LIMIT 1", linkID(short))
+	row := s.db.QueryRow("SELECT Short, Long, CAST(Created AS TEXT), CAST(LastEdit AS TEXT), Owner FROM Links WHERE ID = ?1 LIMIT 1", linkID(short))
 	err := row.Scan(&link.Short, &link.Long, &created, &lastEdit, &link.Owner)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -232,7 +232,7 @@ func (s *SQLiteDB) GetLinksByOwner(owner string) ([]*Link, error) {
 	defer s.mu.RUnlock()
 
 	var links []*Link
-	rows, err := s.db.Query("SELECT Short, Long, Created, LastEdit, Owner FROM Links WHERE LOWER(Owner) = LOWER(?)", owner)
+	rows, err := s.db.Query("SELECT Short, Long, CAST(Created AS TEXT), CAST(LastEdit AS TEXT), Owner FROM Links WHERE LOWER(Owner) = LOWER(?)", owner)
 	if err != nil {
 		return nil, err
 	}
