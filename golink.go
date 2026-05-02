@@ -69,6 +69,7 @@ var (
 	allowUnknownUsers = flag.Bool("allow-unknown-users", false, "allow unknown users to save links")
 	readonly          = flag.Bool("readonly", false, "start golink server in read-only mode")
 	advertiseTags     = flag.String("advertise-tags", os.Getenv("TS_ADVERTISE_TAGS"), "comma-separated list of ACL tags to advertise (e.g. tag:golink)")
+	serviceName       = flag.String("service", "", "tailscale service name to advertise (default: hostname)")
 )
 
 var stats struct {
@@ -263,10 +264,19 @@ out:
 		}()
 	}
 
-	httpListener, err := srv.Listen("tcp", ":80")
-	log.Println("Listening on :80")
-	if err != nil {
-		return err
+	var httpListener net.Listener
+	if *serviceName != "" {
+		httpListener, err = srv.ListenService("svc:"+*serviceName, tsnet.ServiceModeHTTP{Port: 80})
+		if err != nil {
+			return err
+		}
+		log.Printf("Listening on :80 as service svc:%s", *serviceName)
+	} else {
+		httpListener, err = srv.Listen("tcp", ":80")
+		if err != nil {
+			return err
+		}
+		log.Println("Listening on :80")
 	}
 	log.Printf("Serving http://%s/ ...", *hostname)
 	if err := http.Serve(httpListener, httpHandler); err != nil {
