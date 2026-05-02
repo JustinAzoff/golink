@@ -1,4 +1,14 @@
-# golink
+# golink (rqloud fork)
+
+> **Work in progress.** This is a fork of golink that uses [rqloud](https://github.com/JustinAzoff/rqloud) for replicated storage instead of local SQLite. Basic functionality works, but it's by no means complete.
+>
+> Known issues:
+>
+> - Stats work but the existing code doesn't expect to be running in a cluster and counts do not increment/refresh properly. Should not be hard to fix.
+> - Using the compatibility `database/sql` driver works but doesn't take advantage of all the rqlite features.
+>   - We should be able to use [read consistency](https://rqlite.io/docs/api/read-consistency/) so that link redirections always work, even if the cluster does not have a leader.
+
+---
 
 [![status: experimental](https://img.shields.io/badge/status-experimental-blue)](https://tailscale.com/kb/1167/release-stages/#experimental)
 
