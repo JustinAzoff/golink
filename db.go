@@ -67,6 +67,19 @@ func NewSQLiteDB(f string) (*SQLiteDB, error) {
 	return &SQLiteDB{db: db}, nil
 }
 
+// NewDBDB returns a new SQLiteDB that stores links in a SQLite database backed by db.
+func NewDBDB(db *sql.DB) (*SQLiteDB, error) {
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
+
+	if _, err := db.Exec(sqlSchema); err != nil {
+		return nil, err
+	}
+
+	return &SQLiteDB{db: db}, nil
+}
+
 // Now returns the current time.
 func (s *SQLiteDB) Now() time.Time {
 	return tstime.DefaultClock{Clock: s.clock}.Now()
