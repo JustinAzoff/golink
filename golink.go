@@ -30,6 +30,7 @@ import (
 	texttemplate "text/template"
 	"time"
 
+	"github.com/JustinAzoff/rqloud"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/net/xsrftoken"
@@ -58,6 +59,7 @@ const (
 
 var (
 	verbose           = flag.Bool("verbose", false, "be verbose")
+	bootstrapExpect   = flag.Int("bootstrap-expect", 0, "number of nodes expected to form initial cluster")
 	controlURL        = flag.String("control-url", ipn.DefaultControlURL, "the URL base of the control plane (i.e. coordination server)")
 	sqlitefile        = flag.String("sqlitedb", "", "path of SQLite database to store links")
 	dev               = flag.String("dev-listen", "", "if non-empty, listen on this addr and run in dev mode; auto-set sqlitedb if empty and don't use tsnet")
@@ -139,13 +141,8 @@ func Run() error {
 			*sqlitefile = filepath.Join(tmpdir, "golink.db")
 			log.Printf("Dev mode temp db: %s", *sqlitefile)
 		} else {
-			return errors.New("--sqlitedb is required")
+			//return errors.New("--sqlitedb is required")
 		}
-	}
-
-	var err error
-	if db, err = NewSQLiteDB(*sqlitefile); err != nil {
-		return fmt.Errorf("NewSQLiteDB(%q): %w", *sqlitefile, err)
 	}
 
 	if *snapshot != "" {
@@ -158,15 +155,6 @@ func Run() error {
 				log.Fatalf("error reading snapshot file %q: %v", *snapshot, err)
 			}
 		}
-	}
-	if err := restoreLastSnapshot(); err != nil {
-		log.Printf("restoring snapshot: %v", err)
-	}
-	if err := initStats(); err != nil {
-		log.Printf("initializing stats: %v", err)
-	}
-	if err := initMetricsData(); err != nil {
-		log.Printf("initializing metrics data: %v", err)
 	}
 
 	// if link specified on command line, resolve and exit
@@ -210,7 +198,6 @@ func Run() error {
 		return err
 	}
 
-	// create tsNet server and wait for it to be ready & connected.
 	srv := &tsnet.Server{
 		ControlURL:    *controlURL,
 		Dir:           *configDir,
@@ -224,6 +211,32 @@ func Run() error {
 	}
 	if err := srv.Start(); err != nil {
 		return err
+	}
+
+	rq := rqloud.NewWithTSNet(srv)
+	rq.BootstrapExpect = *bootstrapExpect
+	rq.Verbose = *verbose
+	if err := rq.Start(); err != nil {
+		log.Fatalf("start: %v", err)
+	}
+	defer rq.Close()
+
+	rqdb, err := rq.DB()
+	if err != nil {
+		return fmt.Errorf("rq.DB(): %w", err)
+	}
+	if db, err = NewDBDB(rqdb); err != nil {
+		return fmt.Errorf("NewDBDB(): %w", err)
+	}
+
+	if err := restoreLastSnapshot(); err != nil {
+		log.Printf("restoring snapshot: %v", err)
+	}
+	if err := initStats(); err != nil {
+		log.Printf("initializing stats: %v", err)
+	}
+	if err := initMetricsData(); err != nil {
+		log.Printf("initializing metrics data: %v", err)
 	}
 
 	localClient, _ = srv.LocalClient()
